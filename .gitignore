@@ -1,0 +1,26 @@
+# 빌드 결과물
+build/
+out/
+*.class
+*.jar
+!gradle-wrapper.jar
+
+# Gradle
+.gradle/
+
+# 업로드 파일
+uploads/
+
+# 환경변수
+.env
+
+# 로그
+*.log
+logs/
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+*.iml
