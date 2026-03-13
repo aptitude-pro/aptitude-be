@@ -28,6 +28,26 @@ file:
   s3-bucket: ${S3_BUCKET_NAME:skct-dev-bucket}
   aws-region: ${AWS_REGION:ap-northeast-2}
 
+spring:
+  application:
+    name: aptitude-platform
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  pattern:
+    correlation: "[${spring.application.name:},%X{traceId:-},%X{spanId:-}] "
+
 springdoc:
   api-docs:
     path: /api-docs
@@ -81,3 +101,11 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
+
+management:
+  zipkin:
+    tracing:
+      endpoint: http://${ZIPKIN_HOST:zipkin}:9411/api/v2/spans
+  tracing:
+    sampling:
+      probability: 1.0
