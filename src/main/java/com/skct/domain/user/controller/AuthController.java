@@ -1,12 +1,15 @@
 package com.skct.domain.user.controller;
 
 import com.skct.domain.user.dto.AuthResponse;
+import com.skct.domain.user.dto.EmailCodeRequest;
+import com.skct.domain.user.dto.EmailVerifyRequest;
 import com.skct.domain.user.dto.LoginRequest;
 import com.skct.domain.user.dto.RegisterRequest;
 import com.skct.domain.user.service.AuthService;
 import com.skct.global.common.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.mail.MessagingException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -22,6 +25,22 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+
+    @Operation(summary = "이메일 인증코드 발송")
+    @PostMapping("/email/send-code")
+    public ResponseEntity<ApiResponse<Void>> sendEmailCode(
+            @Valid @RequestBody EmailCodeRequest request) throws MessagingException {
+        authService.sendEmailCode(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @Operation(summary = "이메일 인증코드 확인")
+    @PostMapping("/email/verify")
+    public ResponseEntity<ApiResponse<Void>> verifyEmailCode(
+            @Valid @RequestBody EmailVerifyRequest request) {
+        authService.verifyEmailCode(request.getEmail(), request.getCode());
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
 
     @Operation(summary = "회원가입")
     @PostMapping("/register")
