@@ -64,6 +64,15 @@ public class ResultController {
         return ResponseEntity.ok(ApiResponse.ok(resultService.getStatsSummary(userId)));
     }
 
+    @Operation(summary = "성적 삭제")
+    @DeleteMapping("/results/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteResult(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId) {
+        resultService.deleteResult(id, userId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
     @Operation(summary = "수동 채점 결과 저장 (SKCT)")
     @PostMapping("/results/manual")
     public ResponseEntity<ApiResponse<ExamResultResponse>> createManualResult(
