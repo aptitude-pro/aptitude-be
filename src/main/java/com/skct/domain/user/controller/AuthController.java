@@ -65,6 +65,11 @@ public class AuthController {
     }
 
     private void setRefreshTokenCookie(HttpServletResponse response, AuthResponse result) {
-        // RefreshToken은 HttpOnly Cookie로 전달 (보안)
+        Cookie cookie = new Cookie("refreshToken", result.getRefreshToken());
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false); // prod에서는 true (HTTPS)
+        cookie.setPath("/");
+        cookie.setMaxAge(7 * 24 * 60 * 60); // 7일
+        response.addCookie(cookie);
     }
 }

@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 public class AuthResponse {
     private UserDto user;
     private String accessToken;
+    private String refreshToken;
 
     @Getter
     @Builder
@@ -34,6 +35,7 @@ public class AuthResponse {
                         .createdAt(user.getCreatedAt())
                         .build())
                 .accessToken(accessToken)
+                .refreshToken(user.getRefreshToken())
                 .build();
     }
 }
