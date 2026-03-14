@@ -128,6 +128,13 @@ public class ResultService {
     }
 
     @Transactional
+    public void deleteResult(Long resultId, Long userId) {
+        ExamResult result = resultRepository.findByIdAndUserId(resultId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESULT_NOT_FOUND));
+        resultRepository.delete(result);
+    }
+
+    @Transactional
     public ExamResultResponse createManualResult(Long userId, ManualResultRequest req) {
         Integer elapsedSeconds = null;
 

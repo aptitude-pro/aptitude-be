@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface ExamSessionRepository extends JpaRepository<ExamSession, Long> {
     Optional<ExamSession> findByIdAndUserId(Long id, Long userId);
     List<ExamSession> findByUserIdOrderByCreatedAtDesc(Long userId);
+    void deleteByUserId(Long userId);
 }
