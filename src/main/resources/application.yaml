@@ -1,6 +1,8 @@
 spring:
   profiles:
     active: local
+  application:
+    name: aptitude-platform
   datasource:
     url: jdbc:mysql://localhost:3306/skct_db?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}
@@ -28,9 +30,6 @@ file:
   s3-bucket: ${S3_BUCKET_NAME:skct-dev-bucket}
   aws-region: ${AWS_REGION:ap-northeast-2}
 
-spring:
-  application:
-    name: aptitude-platform
 
 management:
   endpoints:
@@ -47,6 +46,9 @@ management:
 logging:
   pattern:
     correlation: "[${spring.application.name:},%X{traceId:-},%X{spanId:-}] "
+  level:
+    com.skct: DEBUG
+    org.springframework.security: INFO
 
 springdoc:
   api-docs:
@@ -58,11 +60,6 @@ springdoc:
 
 server:
   port: 8080
-
-logging:
-  level:
-    com.skct: DEBUG
-    org.springframework.security: INFO
 
 ---
 spring:
