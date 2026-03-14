@@ -74,9 +74,13 @@ public class StudyService {
         StudyMember myMembership = memberRepository.findByStudyIdAndUserId(studyId, userId).orElse(null);
         List<StudyMember> members = memberRepository.findByStudyId(studyId);
 
+        List<Long> memberUserIds = members.stream().map(StudyMember::getUserId).toList();
+        Map<Long, User> userMap = userRepository.findAllById(memberUserIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
         List<MemberDto> memberDtos = members.stream()
                 .map(m -> {
-                    User u = userRepository.findById(m.getUserId()).orElse(null);
+                    User u = userMap.get(m.getUserId());
                     return MemberDto.builder()
                             .userId(m.getUserId())
                             .nickname(u != null ? u.getNickname() : "알 수 없음")
@@ -101,10 +105,16 @@ public class StudyService {
 
     public List<RankingDto> getRanking(Long studyId) {
         List<StudyMember> members = memberRepository.findByStudyId(studyId);
+        List<Long> userIds = members.stream().map(StudyMember::getUserId).toList();
+
+        Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        Map<Long, List<ExamResult>> resultMap = resultRepository.findByUserIdIn(userIds).stream()
+                .collect(Collectors.groupingBy(ExamResult::getUserId));
 
         return members.stream().map(m -> {
-            List<ExamResult> results = resultRepository.findByUserIdOrderByCreatedAtAsc(m.getUserId());
-            User user = userRepository.findById(m.getUserId()).orElse(null);
+            List<ExamResult> results = resultMap.getOrDefault(m.getUserId(), List.of());
+            User user = userMap.get(m.getUserId());
 
             int bestScore = results.stream().mapToInt(ExamResult::getTotalScore).max().orElse(0);
             int avgScore = results.isEmpty() ? 0 : (int) Math.round(results.stream().mapToInt(ExamResult::getTotalScore).average().orElse(0));
@@ -206,10 +216,17 @@ public class StudyService {
                 .orElseThrow(() -> new CustomException(ErrorCode.STUDY_NOT_FOUND));
         List<StudyMember> members = memberRepository.findByStudyId(studyId);
 
+        List<Long> dashboardUserIds = members.stream().map(StudyMember::getUserId).toList();
+        Map<Long, User> dashboardUserMap = userRepository.findAllById(dashboardUserIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        Map<Long, List<ExamResult>> dashboardResultMap = resultRepository
+                .findByUserIdIn(dashboardUserIds).stream()
+                .filter(r -> study.getExamType().equals(r.getExamType()))
+                .collect(Collectors.groupingBy(ExamResult::getUserId));
+
         List<MemberStatDto> memberStats = members.stream().map(m -> {
-            User user = userRepository.findById(m.getUserId()).orElse(null);
-            List<ExamResult> results = resultRepository
-                    .findByUserIdAndExamTypeOrderByCreatedAtAsc(m.getUserId(), study.getExamType());
+            User user = dashboardUserMap.get(m.getUserId());
+            List<ExamResult> results = dashboardResultMap.getOrDefault(m.getUserId(), List.of());
             return MemberStatDto.builder()
                     .userId(m.getUserId())
                     .nickname(user != null ? user.getNickname() : "알 수 없음")
@@ -219,10 +236,9 @@ public class StudyService {
 
         Map<String, List<TimeSeriesPoint>> grouped = new LinkedHashMap<>();
         for (StudyMember m : members) {
-            User user = userRepository.findById(m.getUserId()).orElse(null);
+            User user = dashboardUserMap.get(m.getUserId());
             String nickname = user != null ? user.getNickname() : "알 수 없음";
-            List<ExamResult> results = resultRepository
-                    .findByUserIdAndExamTypeOrderByCreatedAtAsc(m.getUserId(), study.getExamType());
+            List<ExamResult> results = dashboardResultMap.getOrDefault(m.getUserId(), List.of());
             for (ExamResult r : results) {
                 String key = buildGroupKey(r);
                 grouped.computeIfAbsent(key, k -> new ArrayList<>())
@@ -253,6 +269,39 @@ public class StudyService {
             return r.getExamYear() + "_" + r.getExamPeriod() + "_" + r.getPlatform();
         }
         return r.getExamTitle() != null ? r.getExamTitle() : "기타";
+    }
+
+    @Transactional
+    public void deleteStudy(Long studyId, Long userId) {
+        Study study = studyRepository.findById(studyId)
+                .orElseThrow(() -> new CustomException(ErrorCode.STUDY_NOT_FOUND));
+        if (!study.getCreatedBy().equals(userId))
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        noticeRepository.deleteByStudyId(studyId);
+        memberRepository.deleteByStudyId(studyId);
+        studyRepository.delete(study);
+    }
+
+    @Transactional
+    public void kickMember(Long studyId, Long leaderId, Long targetUserId) {
+        StudyMember leader = memberRepository.findByStudyIdAndUserId(studyId, leaderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ACCESS_DENIED));
+        if (leader.getRole() != StudyMember.Role.LEADER)
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        if (leaderId.equals(targetUserId))
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        memberRepository.deleteByStudyIdAndUserId(studyId, targetUserId);
+        long count = memberRepository.countByStudyId(studyId);
+        studyRepository.findById(studyId).ifPresent(s -> s.updateMemberCount((int) count));
+    }
+
+    @Transactional
+    public void deleteNotice(Long studyId, Long userId, Long noticeId) {
+        StudyMember member = memberRepository.findByStudyIdAndUserId(studyId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ACCESS_DENIED));
+        if (member.getRole() != StudyMember.Role.LEADER)
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        noticeRepository.deleteById(noticeId);
     }
 
     public List<NoticeDto> getNotices(Long studyId) {

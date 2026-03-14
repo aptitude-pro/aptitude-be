@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface StudyNoticeRepository extends JpaRepository<StudyNotice, Long> {
     List<StudyNotice> findByStudyIdOrderByCreatedAtDesc(Long studyId);
+    void deleteByStudyId(Long studyId);
 }

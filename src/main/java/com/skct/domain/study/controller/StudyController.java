@@ -74,12 +74,31 @@ public class StudyController {
         return ResponseEntity.ok(ApiResponse.ok(studyService.getRanking(id)));
     }
 
+    @Operation(summary = "스터디 삭제 (리더만)")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteStudy(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId) {
+        studyService.deleteStudy(id, userId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
     @Operation(summary = "스터디 탈퇴")
     @DeleteMapping("/{id}/leave")
     public ResponseEntity<ApiResponse<Void>> leaveStudy(
             @PathVariable Long id,
             @AuthenticationPrincipal Long userId) {
         studyService.leaveStudy(id, userId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @Operation(summary = "멤버 강제 탈퇴 (리더만)")
+    @DeleteMapping("/{id}/members/{targetUserId}")
+    public ResponseEntity<ApiResponse<Void>> kickMember(
+            @PathVariable Long id,
+            @PathVariable Long targetUserId,
+            @AuthenticationPrincipal Long userId) {
+        studyService.kickMember(id, userId, targetUserId);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
@@ -107,6 +126,16 @@ public class StudyController {
             @RequestBody NoticeRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(
                 studyService.createNotice(id, userId, request.getTitle(), request.getContent())));
+    }
+
+    @Operation(summary = "공지 삭제 (리더만)")
+    @DeleteMapping("/{id}/notices/{noticeId}")
+    public ResponseEntity<ApiResponse<Void>> deleteNotice(
+            @PathVariable Long id,
+            @PathVariable Long noticeId,
+            @AuthenticationPrincipal Long userId) {
+        studyService.deleteNotice(id, userId, noticeId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     @Getter static class CreateStudyRequest {
