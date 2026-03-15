@@ -19,16 +19,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - aptitude-net
 
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: aptitude-backend
+    container_name: skct-backend
     environment:
       DB_USERNAME: ${MYSQL_USER:-skct}
       DB_PASSWORD: ${MYSQL_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       SPRING_PROFILES_ACTIVE: prod
     ports:
       - "8081:8081"
@@ -39,6 +43,8 @@ services:
         condition: service_started
     volumes:
       - uploads:/app/uploads
+    networks:
+      - aptitude-net
 
   # ── 모니터링 ──────────────────────────────────────────────
 
@@ -51,6 +57,8 @@ services:
       - "9090:9090"
     depends_on:
       - backend
+    networks:
+      - aptitude-net
 
   grafana:
     image: grafana/grafana:latest
@@ -64,12 +72,21 @@ services:
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
+    networks:
+      - aptitude-net
 
   zipkin:
     image: openzipkin/zipkin:latest
     container_name: aptitude-zipkin
     ports:
       - "9411:9411"
+    networks:
+      - aptitude-net
+
+networks:
+  aptitude-net:
+    name: aptitude-net
+    driver: bridge
 
 volumes:
   mysql_data:
