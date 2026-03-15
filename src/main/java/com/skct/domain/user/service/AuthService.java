@@ -13,6 +13,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.mail.MessagingException;
+import java.security.SecureRandom;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -21,9 +24,29 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
+    private final EmailVerificationStore emailVerificationStore;
+    private final EmailService emailService;
+
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    public void sendEmailCode(String email) throws MessagingException {
+        if (userRepository.existsByEmail(email)) {
+            throw new CustomException(ErrorCode.EMAIL_ALREADY_EXISTS);
+        }
+        String code = String.format("%06d", RANDOM.nextInt(1_000_000));
+        emailVerificationStore.save(email, code);
+        emailService.sendVerificationCode(email, code);
+    }
+
+    public void verifyEmailCode(String email, String code) {
+        emailVerificationStore.verify(email, code);
+    }
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
+        if (!emailVerificationStore.isVerified(request.getEmail())) {
+            throw new CustomException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new CustomException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
@@ -40,6 +63,7 @@ public class AuthService {
         String accessToken = jwtProvider.createAccessToken(user.getId(), user.getEmail(), user.getRole().name());
         String refreshToken = jwtProvider.createRefreshToken(user.getId());
         user.updateRefreshToken(refreshToken);
+        emailVerificationStore.remove(request.getEmail());
 
         return AuthResponse.from(user, accessToken);
     }
