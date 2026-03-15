@@ -44,7 +44,10 @@ services:
     volumes:
       - uploads:/app/uploads
     networks:
-      - aptitude-net
+      aptitude-net:
+        aliases:
+          - aptitude-backend
+       
 
   # ── 모니터링 ──────────────────────────────────────────────
 
