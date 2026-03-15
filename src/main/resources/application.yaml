@@ -19,24 +19,22 @@ spring:
   jackson:
     default-property-inclusion: non_null
     time-zone: Asia/Seoul
-
-jwt:
-  secret: ${JWT_SECRET:skct-platform-jwt-secret-key-for-development-use-256-bits-minimum}
-  access-expiration: 1800000    # 30분
-  refresh-expiration: 604800000 # 7일
-
-spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
           auth: true
           starttls:
             enable: true
+
+jwt:
+  secret: ${JWT_SECRET:skct-platform-jwt-secret-key-for-development-use-256-bits-minimum}
+  access-expiration: 1800000    # 30분
+  refresh-expiration: 604800000 # 7일
 
 file:
   upload-dir: uploads/
