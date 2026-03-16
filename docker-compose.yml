@@ -39,6 +39,13 @@ services:
         condition: service_started
     volumes:
       - uploads:/app/uploads
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.aptitude-pro.shop`)"
+      - "traefik.http.routers.backend.entrypoints=https"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend.loadbalancer.server.port=8080"
     networks:
       aptitude-net:
         aliases:
@@ -65,6 +72,13 @@ services:
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.aptitude-pro.shop`)"
+      - "traefik.http.routers.grafana.entrypoints=https"
+      - "traefik.http.routers.grafana.tls=true"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
     networks:
       - aptitude-net
       - coolify
@@ -72,6 +86,13 @@ services:
   zipkin:
     image: openzipkin/zipkin:latest
     container_name: aptitude-zipkin
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.zipkin.rule=Host(`zipkin.aptitude-pro.shop`)"
+      - "traefik.http.routers.zipkin.entrypoints=https"
+      - "traefik.http.routers.zipkin.tls=true"
+      - "traefik.http.routers.zipkin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.zipkin.loadbalancer.server.port=9411"
     networks:
       - aptitude-net
       - coolify
