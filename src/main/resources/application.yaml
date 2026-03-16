@@ -33,14 +33,13 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET:skct-platform-jwt-secret-key-for-development-use-256-bits-minimum}
-  access-expiration: 1800000    # 30분
-  refresh-expiration: 604800000 # 7일
+  access-expiration: 1800000
+  refresh-expiration: 604800000
 
 file:
   upload-dir: uploads/
   s3-bucket: ${S3_BUCKET_NAME:skct-dev-bucket}
   aws-region: ${AWS_REGION:ap-northeast-2}
-
 
 management:
   endpoints:
@@ -53,6 +52,11 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+    enable:
+      hikaricp: true
 
 logging:
   pattern:
@@ -103,6 +107,8 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    hikari:
+      pool-name: HikariPool-1
   jpa:
     hibernate:
       ddl-auto: update
