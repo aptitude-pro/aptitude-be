@@ -1,6 +1,5 @@
 package com.skct.domain.result.service;
 
-import com.skct.domain.exam.entity.ExamPaper;
 import com.skct.domain.exam.entity.Question;
 import com.skct.domain.exam.repository.ExamPaperRepository;
 import com.skct.domain.exam.repository.QuestionRepository;
@@ -46,9 +45,28 @@ public class ResultService {
         ExamResult result = resultRepository.findByIdAndUserId(resultId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESULT_NOT_FOUND));
 
-        List<UserAnswer> userAnswers = result.getSessionId() != null
-                ? answerRepository.findBySessionId(result.getSessionId())
-                : List.of();
+        List<UserAnswer> userAnswers;
+        if (result.getSessionId() != null) {
+            userAnswers = answerRepository.findBySessionId(result.getSessionId());
+            // examResultId로 저장된 marks(isGuessed/isWrong)를 sessionId 답안에 overlay
+            List<UserAnswer> markedAnswers = answerRepository.findByExamResultId(resultId);
+            if (!markedAnswers.isEmpty()) {
+                Map<Integer, UserAnswer> marksMap = markedAnswers.stream()
+                        .collect(Collectors.toMap(UserAnswer::getQuestionNo, ua -> ua));
+                userAnswers = userAnswers.stream()
+                        .map(ua -> {
+                            UserAnswer mark = marksMap.get(ua.getQuestionNo());
+                            if (mark != null && (mark.isGuessed() || mark.isWrong())) {
+                                return ua.withMarks(mark.isGuessed(), mark.isWrong());
+                            }
+                            return ua;
+                        })
+                        .collect(Collectors.toList());
+            }
+        } else {
+            userAnswers = answerRepository.findByExamResultId(resultId);
+        }
+
         List<Question> questions = result.getExamPaperId() != null
                 ? questionRepository.findByExamPaperIdOrderByQuestionNo(result.getExamPaperId())
                 : List.of();
@@ -65,6 +83,8 @@ public class ResultService {
                             .selectedAnswer(ua.getSelectedAnswer())
                             .correctAnswer(correctAnswer)
                             .isCorrect(correctAnswer != null && correctAnswer.equals(ua.getSelectedAnswer()))
+                            .isGuessed(ua.isGuessed())
+                            .isWrong(ua.isWrong())
                             .category(q != null ? q.getCategory() : null)
                             .build();
                 })
@@ -142,8 +162,18 @@ public class ResultService {
             ExamSession session = sessionRepository.findById(req.getSessionId())
                     .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
             session.updateStatus(ExamSession.Status.SUBMITTED);
-            elapsedSeconds = session.getElapsedSeconds();
+            elapsedSeconds = req.getElapsedSeconds() != null
+                    ? req.getElapsedSeconds()
+                    : session.getElapsedSeconds();
+        } else {
+            elapsedSeconds = req.getElapsedSeconds();
         }
+
+        List<ManualResultRequest.QuestionRecord> questions =
+                req.getQuestions() != null ? req.getQuestions() : List.of();
+        int answeredCount = (int) questions.stream()
+                .filter(q -> q.getSelectedAnswer() != null)
+                .count();
 
         ExamResult result = ExamResult.builder()
                 .userId(userId)
@@ -152,8 +182,8 @@ public class ResultService {
                 .examType("SKCT")
                 .examTitle(buildTitle(req))
                 .totalScore(req.getTotalScore())
-                .correctCount(0)
-                .totalCount(0)
+                .correctCount(answeredCount)
+                .totalCount(100)
                 .elapsedSeconds(elapsedSeconds)
                 .categoryScores(req.getCategoryScores())
                 .examYear(req.getExamYear())
@@ -163,7 +193,24 @@ public class ResultService {
                 .build();
 
         ExamResult saved = resultRepository.save(result);
-        return ExamResultResponse.from(saved, List.of());
+
+        if (!questions.isEmpty()) {
+            Long savedId = saved.getId();
+            List<UserAnswer> userAnswers = questions.stream()
+                    .map(q -> UserAnswer.builder()
+                            .examResultId(savedId)
+                            .questionNo(q.getQuestionNo())
+                            .selectedAnswer(q.getSelectedAnswer())
+                            .isGuessed(q.isGuessed())
+                            .isWrong(q.isWrong())
+                            .build())
+                    .collect(Collectors.toList());
+            answerRepository.saveAll(userAnswers);
+        }
+
+        List<ExamResultResponse.AnswerDetail> details = ExamResultResponse.toDetails(
+                answerRepository.findByExamResultId(saved.getId()));
+        return ExamResultResponse.from(saved, details);
     }
 
     private String buildTitle(ManualResultRequest req) {

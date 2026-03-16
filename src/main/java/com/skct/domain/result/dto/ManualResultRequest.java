@@ -3,6 +3,7 @@ package com.skct.domain.result.dto;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.Map;
 
 @Getter
@@ -15,4 +16,15 @@ public class ManualResultRequest {
     private String examPeriod;
     private String platform;
     private String examRound;
+    private Integer elapsedSeconds;
+    private List<QuestionRecord> questions;
+
+    @Getter
+    @NoArgsConstructor
+    public static class QuestionRecord {
+        private Integer questionNo;
+        private Integer selectedAnswer;
+        private boolean isGuessed;
+        private boolean isWrong;
+    }
 }

@@ -37,6 +37,8 @@ public class ExamResultResponse {
         private Integer selectedAnswer;
         private Integer correctAnswer;
         private boolean isCorrect;
+        private boolean isGuessed;
+        private boolean isWrong;
         private String category;
     }
 
@@ -63,5 +65,20 @@ public class ExamResultResponse {
                 .platform(result.getPlatform())
                 .examRound(result.getExamRound())
                 .build();
+    }
+
+    public static List<AnswerDetail> toDetails(List<UserAnswer> userAnswers) {
+        return userAnswers.stream()
+                .map(ua -> AnswerDetail.builder()
+                        .questionNo(ua.getQuestionNo())
+                        .selectedAnswer(ua.getSelectedAnswer())
+                        .correctAnswer(null)
+                        .isCorrect(false)
+                        .isGuessed(ua.isGuessed())
+                        .isWrong(ua.isWrong())
+                        .category(null)
+                        .build())
+                .sorted(java.util.Comparator.comparingInt(AnswerDetail::getQuestionNo))
+                .collect(Collectors.toList());
     }
 }
