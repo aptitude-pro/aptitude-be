@@ -33,7 +33,7 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET:skct-platform-jwt-secret-key-for-development-use-256-bits-minimum}
-  access-expiration: 1800000
+  access-expiration: 7200000
   refresh-expiration: 604800000
 
 file:

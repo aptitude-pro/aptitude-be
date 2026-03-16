@@ -90,6 +90,9 @@ public class ExamSessionService {
 
     @Transactional
     public ExamResult submitSession(Long sessionId, Long userId) {
+        if (userId == null) {
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
+        }
         ExamSession session = sessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
 
