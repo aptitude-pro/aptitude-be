@@ -79,6 +79,7 @@ services:
       - "traefik.http.routers.grafana.entrypoints=https"
       - "traefik.http.routers.grafana.tls=true"
       - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+      - "traefik.docker.network=coolify"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
     networks:
       - aptitude-net
@@ -94,6 +95,7 @@ services:
       - "traefik.http.routers.zipkin.tls=true"
       - "traefik.http.routers.zipkin.tls.certresolver=letsencrypt"
       - "traefik.http.services.zipkin.loadbalancer.server.port=9411"
+      - "traefik.docker.network=coolify"
     networks:
       - aptitude-net
       - coolify
