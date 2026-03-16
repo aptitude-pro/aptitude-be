@@ -46,6 +46,7 @@ services:
       - "traefik.http.routers.backend.tls=true"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.backend.loadbalancer.server.port=8080"
+      - "traefik.docker.network=coolify"
     networks:
       aptitude-net:
         aliases:
