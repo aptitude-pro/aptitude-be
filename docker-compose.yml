@@ -9,8 +9,6 @@ services:
       MYSQL_DATABASE: skct_db
       MYSQL_USER: ${MYSQL_USER:-skct}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
@@ -34,8 +32,6 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       SPRING_PROFILES_ACTIVE: prod
-    ports:
-      - "8081:8081"
     depends_on:
       mysql:
         condition: service_healthy
@@ -43,21 +39,22 @@ services:
         condition: service_started
     volumes:
       - uploads:/app/uploads
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.aptitude-pro.shop`)"
+      - "traefik.http.routers.backend.entrypoints=http"
+      - "traefik.http.services.backend.loadbalancer.server.port=8081"
     networks:
       aptitude-net:
         aliases:
           - aptitude-backend
-       
-
-  # ── 모니터링 ──────────────────────────────────────────────
+      coolify: {}
 
   prometheus:
     image: prom/prometheus:latest
     container_name: aptitude-prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    ports:
-      - "9090:9090"
     depends_on:
       - backend
     networks:
@@ -66,8 +63,6 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: aptitude-grafana
-    ports:
-      - "3001:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
@@ -75,21 +70,34 @@ services:
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.aptitude-pro.shop`)"
+      - "traefik.http.routers.grafana.entrypoints=http"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
     networks:
       - aptitude-net
+      - coolify
 
   zipkin:
     image: openzipkin/zipkin:latest
     container_name: aptitude-zipkin
-    ports:
-      - "9411:9411"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.zipkin.rule=Host(`zipkin.aptitude-pro.shop`)"
+      - "traefik.http.routers.zipkin.entrypoints=http"
+      - "traefik.http.services.zipkin.loadbalancer.server.port=9411"
     networks:
       - aptitude-net
+      - coolify
 
 networks:
   aptitude-net:
     name: aptitude-net
     driver: bridge
+  coolify:
+    external: true
+    name: coolify
 
 volumes:
   mysql_data:
