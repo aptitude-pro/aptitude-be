@@ -108,7 +108,7 @@ public class StudyController {
     public ResponseEntity<ApiResponse<StudyService.StudyDashboardResponse>> getDashboard(
             @PathVariable Long id,
             @AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(ApiResponse.ok(studyService.getDashboard(id)));
+        return ResponseEntity.ok(ApiResponse.ok(studyService.getDashboard(id, userId)));
     }
 
     @Operation(summary = "공지 목록")

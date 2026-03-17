@@ -212,9 +212,11 @@ public class StudyService {
         return toNoticeDto(notice);
     }
 
-    public StudyDashboardResponse getDashboard(Long studyId) {
+    public StudyDashboardResponse getDashboard(Long studyId, Long userId) {
         Study study = studyRepository.findById(studyId)
                 .orElseThrow(() -> new CustomException(ErrorCode.STUDY_NOT_FOUND));
+        if (!memberRepository.existsByStudyIdAndUserId(studyId, userId))
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
         List<StudyMember> members = memberRepository.findByStudyId(studyId);
 
         List<Long> dashboardUserIds = members.stream().map(StudyMember::getUserId).toList();
