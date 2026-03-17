@@ -12,6 +12,7 @@ import com.skct.domain.user.entity.User;
 import com.skct.domain.user.repository.UserRepository;
 import com.skct.global.exception.CustomException;
 import com.skct.global.exception.ErrorCode;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -358,6 +359,7 @@ public class StudyService {
         private String examType;
         private String inviteCode;
         private Integer maxMembers;
+        @JsonProperty("isPublic")
         private boolean isPublic;
         private Integer memberCount;
         private String myRole;
@@ -371,6 +373,7 @@ public class StudyService {
         private String examType;
         private String inviteCode;
         private Integer maxMembers;
+        @JsonProperty("isPublic")
         private boolean isPublic;
         private Integer memberCount;
         private String myRole;

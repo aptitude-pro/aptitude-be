@@ -4,6 +4,7 @@ import com.skct.domain.study.service.StudyService;
 import com.skct.global.common.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -142,6 +143,7 @@ public class StudyController {
         private String name;
         private String examType;
         private Integer maxMembers;
+        @JsonProperty("isPublic")
         private boolean isPublic;
     }
 
