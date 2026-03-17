@@ -69,6 +69,15 @@ public class ExamSessionController {
         return ResponseEntity.ok(ApiResponse.ok(ExamResultResponse.from(result, null)));
     }
 
+    @Operation(summary = "시험 세션 삭제")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteSession(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId) {
+        sessionService.deleteSession(id, userId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
     @Getter
     static class StartSessionRequest {
         private Long examPaperId;

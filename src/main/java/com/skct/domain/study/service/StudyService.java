@@ -105,6 +105,8 @@ public class StudyService {
     }
 
     public List<RankingDto> getRanking(Long studyId) {
+        studyRepository.findById(studyId)
+                .orElseThrow(() -> new CustomException(ErrorCode.STUDY_NOT_FOUND));
         List<StudyMember> members = memberRepository.findByStudyId(studyId);
         List<Long> userIds = members.stream().map(StudyMember::getUserId).toList();
 
@@ -280,9 +282,7 @@ public class StudyService {
                 .orElseThrow(() -> new CustomException(ErrorCode.STUDY_NOT_FOUND));
         if (!study.getCreatedBy().equals(userId))
             throw new CustomException(ErrorCode.ACCESS_DENIED);
-        noticeRepository.deleteByStudyId(studyId);
-        memberRepository.deleteByStudyId(studyId);
-        studyRepository.delete(study);
+        study.softDelete();
     }
 
     @Transactional
@@ -308,6 +308,8 @@ public class StudyService {
     }
 
     public List<NoticeDto> getNotices(Long studyId) {
+        studyRepository.findById(studyId)
+                .orElseThrow(() -> new CustomException(ErrorCode.STUDY_NOT_FOUND));
         return noticeRepository.findByStudyIdOrderByCreatedAtDesc(studyId).stream()
                 .map(this::toNoticeDto)
                 .collect(Collectors.toList());
@@ -350,7 +352,7 @@ public class StudyService {
             for (int i = 0; i < 6; i++) {
                 sb.append(chars.charAt(random.nextInt(chars.length())));
             }
-        } while (studyRepository.findByInviteCode(sb.toString()).isPresent());
+        } while (studyRepository.existsByInviteCodeIgnoringSoftDelete(sb.toString()));
         return sb.toString();
     }
 

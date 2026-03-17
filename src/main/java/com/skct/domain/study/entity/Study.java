@@ -3,9 +3,13 @@ package com.skct.domain.study.entity;
 import com.skct.global.common.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "studies")
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
@@ -37,7 +41,14 @@ public class Study extends BaseTimeEntity {
     @Column
     private Integer memberCount;
 
+    @Column
+    private LocalDateTime deletedAt;
+
     public void updateMemberCount(int count) {
         this.memberCount = count;
+    }
+
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
     }
 }

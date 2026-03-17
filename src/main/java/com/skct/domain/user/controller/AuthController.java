@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.Cookie;
+import org.springframework.beans.factory.annotation.Value;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,9 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+
+    @Value("${app.secure-cookie:false}")
+    private boolean secureCookie;
 
     @Operation(summary = "이메일 인증코드 발송")
     @PostMapping("/email/send-code")
@@ -86,7 +90,7 @@ public class AuthController {
     private void setRefreshTokenCookie(HttpServletResponse response, AuthResponse result) {
         Cookie cookie = new Cookie("refreshToken", result.getRefreshToken());
         cookie.setHttpOnly(true);
-        cookie.setSecure(false); // prod에서는 true (HTTPS)
+        cookie.setSecure(secureCookie);
         cookie.setPath("/");
         cookie.setMaxAge(7 * 24 * 60 * 60); // 7일
         response.addCookie(cookie);

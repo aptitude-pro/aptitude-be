@@ -152,6 +152,20 @@ public class ExamSessionService {
         return resultRepository.save(result);
     }
 
+    @Transactional
+    public void deleteSession(Long sessionId, Long userId) {
+        ExamSession session = sessionRepository.findByIdAndUserId(sessionId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (session.getStatus() == ExamSession.Status.COMPLETED ||
+                session.getStatus() == ExamSession.Status.SUBMITTED) {
+            throw new CustomException(ErrorCode.SESSION_ALREADY_SUBMITTED);
+        }
+
+        answerRepository.deleteBySessionId(sessionId);
+        sessionRepository.delete(session);
+    }
+
     @Getter
     @Builder
     public static class SessionResponse {

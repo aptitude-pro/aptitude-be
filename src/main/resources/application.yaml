@@ -98,6 +98,11 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
 
 ---
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  secure-cookie: true
+
 spring:
   config:
     activate:
