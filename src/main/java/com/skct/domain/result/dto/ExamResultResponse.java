@@ -29,6 +29,7 @@ public class ExamResultResponse {
     private String examPeriod;
     private String platform;
     private String examRound;
+    private boolean isDraft;
 
     @Getter
     @Builder
@@ -64,6 +65,7 @@ public class ExamResultResponse {
                 .examPeriod(result.getExamPeriod())
                 .platform(result.getPlatform())
                 .examRound(result.getExamRound())
+                .isDraft(result.isDraft())
                 .build();
     }
 

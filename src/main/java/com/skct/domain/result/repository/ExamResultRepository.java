@@ -11,19 +11,21 @@ import java.util.Optional;
 
 public interface ExamResultRepository extends JpaRepository<ExamResult, Long> {
     Page<ExamResult> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    Page<ExamResult> findByUserIdAndIsDraftFalseOrderByCreatedAtDesc(Long userId, Pageable pageable);
     List<ExamResult> findByUserIdOrderByCreatedAtAsc(Long userId);
+    List<ExamResult> findByUserIdAndIsDraftFalseOrderByCreatedAtAsc(Long userId);
     List<ExamResult> findByUserIdAndExamTypeOrderByCreatedAtAsc(Long userId, String examType);
     Optional<ExamResult> findBySessionId(Long sessionId);
     Optional<ExamResult> findByIdAndUserId(Long id, Long userId);
     List<ExamResult> findByUserIdIn(List<Long> userIds);
     void deleteByUserId(Long userId);
 
-    @Query("SELECT AVG(r.totalScore) FROM ExamResult r WHERE r.userId = :userId")
+    @Query("SELECT AVG(r.totalScore) FROM ExamResult r WHERE r.userId = :userId AND r.isDraft = false")
     Double findAvgScoreByUserId(Long userId);
 
-    @Query("SELECT MAX(r.totalScore) FROM ExamResult r WHERE r.userId = :userId")
+    @Query("SELECT MAX(r.totalScore) FROM ExamResult r WHERE r.userId = :userId AND r.isDraft = false")
     Integer findMaxScoreByUserId(Long userId);
 
-    @Query("SELECT COUNT(r) FROM ExamResult r WHERE r.userId = :userId")
+    @Query("SELECT COUNT(r) FROM ExamResult r WHERE r.userId = :userId AND r.isDraft = false")
     Long countByUserId(Long userId);
 }

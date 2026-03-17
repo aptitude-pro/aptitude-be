@@ -62,4 +62,8 @@ public class ExamResult extends BaseTimeEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "JSON")
     private Map<String, Integer> categoryScores;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean isDraft = false;
 }

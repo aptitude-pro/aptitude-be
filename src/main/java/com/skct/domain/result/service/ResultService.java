@@ -37,7 +37,7 @@ public class ResultService {
     private final ExamPaperRepository examPaperRepository;
 
     public Page<ExamResultResponse> getResults(Long userId, Pageable pageable) {
-        return resultRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
+        return resultRepository.findByUserIdAndIsDraftFalseOrderByCreatedAtDesc(userId, pageable)
                 .map(r -> ExamResultResponse.from(r, null));
     }
 
@@ -95,7 +95,7 @@ public class ResultService {
     }
 
     public List<GrowthDataPoint> getGrowthData(Long userId, String examType) {
-        List<ExamResult> results = resultRepository.findByUserIdOrderByCreatedAtAsc(userId);
+        List<ExamResult> results = resultRepository.findByUserIdAndIsDraftFalseOrderByCreatedAtAsc(userId);
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd");
 
         return results.stream()
@@ -110,7 +110,7 @@ public class ResultService {
     }
 
     public Map<String, Integer> getCategoryData(Long userId) {
-        List<ExamResult> results = resultRepository.findByUserIdOrderByCreatedAtAsc(userId);
+        List<ExamResult> results = resultRepository.findByUserIdAndIsDraftFalseOrderByCreatedAtAsc(userId);
 
         Map<String, List<Integer>> categoryAccum = new HashMap<>();
         for (ExamResult r : results) {
@@ -134,7 +134,7 @@ public class ResultService {
         Integer max = resultRepository.findMaxScoreByUserId(userId);
 
         // 전체 정답률
-        List<ExamResult> results = resultRepository.findByUserIdOrderByCreatedAtAsc(userId);
+        List<ExamResult> results = resultRepository.findByUserIdAndIsDraftFalseOrderByCreatedAtAsc(userId);
         int totalCorrect = results.stream().mapToInt(ExamResult::getCorrectCount).sum();
         int totalQuestions = results.stream().mapToInt(ExamResult::getTotalCount).sum();
         int correctRate = totalQuestions > 0 ? (int) Math.round((double) totalCorrect / totalQuestions * 100) : 0;
@@ -181,7 +181,7 @@ public class ResultService {
                 .examPaperId(null)
                 .examType("SKCT")
                 .examTitle(buildTitle(req))
-                .totalScore(req.getTotalScore())
+                .totalScore(req.getTotalScore() != null ? req.getTotalScore() : 0)
                 .correctCount(answeredCount)
                 .totalCount(100)
                 .elapsedSeconds(elapsedSeconds)
@@ -190,6 +190,7 @@ public class ResultService {
                 .examPeriod(req.getExamPeriod())
                 .platform(req.getPlatform())
                 .examRound(req.getExamRound())
+                .isDraft(req.isDraft())
                 .build();
 
         ExamResult saved = resultRepository.save(result);

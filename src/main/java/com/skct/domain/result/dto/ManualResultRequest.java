@@ -18,6 +18,7 @@ public class ManualResultRequest {
     private String examRound;
     private Integer elapsedSeconds;
     private List<QuestionRecord> questions;
+    private boolean isDraft;
 
     @Getter
     @NoArgsConstructor
