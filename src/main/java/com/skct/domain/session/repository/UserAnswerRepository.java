@@ -11,4 +11,5 @@ public interface UserAnswerRepository extends JpaRepository<UserAnswer, Long> {
     List<UserAnswer> findByExamResultId(Long examResultId);
     Optional<UserAnswer> findBySessionIdAndQuestionNo(Long sessionId, Integer questionNo);
     void deleteBySessionId(Long sessionId);
+    void deleteByExamResultId(Long examResultId);
 }

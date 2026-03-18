@@ -81,4 +81,13 @@ public class ResultController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(resultService.createManualResult(userId, request)));
     }
+
+    @Operation(summary = "수동 채점 결과 업데이트 (임시저장 → 최종)")
+    @PutMapping("/results/{id}/manual")
+    public ResponseEntity<ApiResponse<ExamResultResponse>> updateManualResult(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId,
+            @RequestBody ManualResultRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(resultService.updateManualResult(userId, id, request)));
+    }
 }

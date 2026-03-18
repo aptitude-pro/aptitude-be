@@ -37,7 +37,7 @@ public class ResultService {
     private final ExamPaperRepository examPaperRepository;
 
     public Page<ExamResultResponse> getResults(Long userId, Pageable pageable) {
-        return resultRepository.findByUserIdAndIsDraftFalseOrderByCreatedAtDesc(userId, pageable)
+        return resultRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
                 .map(r -> ExamResultResponse.from(r, null));
     }
 
@@ -212,6 +212,44 @@ public class ResultService {
         List<ExamResultResponse.AnswerDetail> details = ExamResultResponse.toDetails(
                 answerRepository.findByExamResultId(saved.getId()));
         return ExamResultResponse.from(saved, details);
+    }
+
+    @Transactional
+    public ExamResultResponse updateManualResult(Long userId, Long resultId, ManualResultRequest req) {
+        ExamResult result = resultRepository.findByIdAndUserId(resultId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESULT_NOT_FOUND));
+
+        Map<String, Integer> catScores = req.getCategoryScores() != null ? req.getCategoryScores() : Map.of();
+        int total = catScores.values().stream().mapToInt(Integer::intValue).sum();
+
+        List<ManualResultRequest.QuestionRecord> questions =
+                req.getQuestions() != null ? req.getQuestions() : List.of();
+        int answeredCount = (int) questions.stream()
+                .filter(q -> q.getSelectedAnswer() != null)
+                .count();
+
+        result.updateScore(total, catScores, req.isDraft(),
+                answeredCount > 0 ? answeredCount : result.getCorrectCount(),
+                result.getTotalCount(),
+                req.getElapsedSeconds());
+
+        if (!questions.isEmpty()) {
+            answerRepository.deleteByExamResultId(resultId);
+            List<UserAnswer> userAnswers = questions.stream()
+                    .map(q -> UserAnswer.builder()
+                            .examResultId(resultId)
+                            .questionNo(q.getQuestionNo())
+                            .selectedAnswer(q.getSelectedAnswer())
+                            .isGuessed(q.isGuessed())
+                            .isWrong(q.isWrong())
+                            .build())
+                    .collect(Collectors.toList());
+            answerRepository.saveAll(userAnswers);
+        }
+
+        List<ExamResultResponse.AnswerDetail> details = ExamResultResponse.toDetails(
+                answerRepository.findByExamResultId(resultId));
+        return ExamResultResponse.from(result, details);
     }
 
     private String buildTitle(ManualResultRequest req) {

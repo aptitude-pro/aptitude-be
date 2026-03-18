@@ -66,4 +66,14 @@ public class ExamResult extends BaseTimeEntity {
     @Builder.Default
     @Column(nullable = false)
     private boolean isDraft = false;
+
+    public void updateScore(int totalScore, Map<String, Integer> categoryScores, boolean isDraft,
+                            Integer correctCount, Integer totalCount, Integer elapsedSeconds) {
+        this.totalScore = totalScore;
+        this.categoryScores = categoryScores;
+        this.isDraft = isDraft;
+        this.correctCount = correctCount;
+        this.totalCount = totalCount;
+        if (elapsedSeconds != null) this.elapsedSeconds = elapsedSeconds;
+    }
 }
