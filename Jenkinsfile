@@ -42,7 +42,7 @@ pipeline {
 
             docker run -d \
               --name $CONTAINER_NAME \
-              --env-file /Users/hansang-yun/yoon/skct_platform/backend/.env \
+              --env-file /secrets/backend.env \
               -p $HOST_PORT:$APP_PORT \
               $IMAGE_NAME:$IMAGE_TAG
                 '''
