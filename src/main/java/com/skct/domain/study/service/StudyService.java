@@ -508,7 +508,7 @@ public class StudyService {
             for (int i = 0; i < 6; i++) {
                 sb.append(chars.charAt(random.nextInt(chars.length())));
             }
-        } while (studyRepository.existsByInviteCodeIgnoringSoftDelete(sb.toString()));
+        } while (studyRepository.countByInviteCodeIgnoringSoftDelete(sb.toString()) > 0);
         return sb.toString();
     }
 

@@ -12,8 +12,8 @@ public interface StudyRepository extends JpaRepository<Study, Long> {
     Optional<Study> findByInviteCode(String inviteCode);
 
     /** soft-deleted 스터디 포함해서 초대코드 존재 여부 확인 (코드 재사용 방지) */
-    @Query(value = "SELECT COUNT(*) > 0 FROM studies WHERE invite_code = :code", nativeQuery = true)
-    boolean existsByInviteCodeIgnoringSoftDelete(@Param("code") String code);
+    @Query(value = "SELECT COUNT(s.id) > 0 FROM studies s WHERE s.invite_code = :code", nativeQuery = true)
+    long countByInviteCodeIgnoringSoftDelete(@Param("code") String code);
 
     @Query("SELECT s FROM Study s JOIN StudyMember sm ON s.id = sm.studyId WHERE sm.userId = :userId")
     List<Study> findByMemberUserId(Long userId);
