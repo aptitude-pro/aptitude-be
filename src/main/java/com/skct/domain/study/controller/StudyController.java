@@ -203,6 +203,15 @@ public class StudyController {
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
+    @Operation(summary = "스터디원 월별 학습 기록 전체 조회")
+    @GetMapping("/{id}/logs/members")
+    public ResponseEntity<ApiResponse<List<StudyService.MemberLogDto>>> getMemberLogs(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId,
+            @RequestParam String month) {
+        return ResponseEntity.ok(ApiResponse.ok(studyService.getMemberLogs(id, userId, month)));
+    }
+
     @Operation(summary = "스터디원 오늘 학습 현황")
     @GetMapping("/{id}/logs/today-summary")
     public ResponseEntity<ApiResponse<List<StudyService.MemberTodayDto>>> getTodaySummary(

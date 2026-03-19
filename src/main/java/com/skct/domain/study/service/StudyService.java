@@ -410,6 +410,44 @@ public class StudyService {
         logRepository.delete(log);
     }
 
+    public List<MemberLogDto> getMemberLogs(Long studyId, Long requesterId, String yearMonth) {
+        if (!memberRepository.existsByStudyIdAndUserId(studyId, requesterId))
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+
+        YearMonth ym = YearMonth.parse(yearMonth);
+        List<StudyLog> logs = logRepository.findByStudyIdAndMonth(studyId, ym.getYear(), ym.getMonthValue());
+
+        List<Long> userIds = logs.stream().map(StudyLog::getUserId).distinct().toList();
+        Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        List<Long> bookIds = logs.stream()
+                .filter(l -> l.getBookId() != null).map(StudyLog::getBookId).distinct().toList();
+        Map<Long, String> bookTitleMap = bookRepository.findAllById(bookIds).stream()
+                .collect(Collectors.toMap(StudyBook::getId, StudyBook::getTitle));
+
+        return logs.stream().map(l -> {
+            User user = userMap.get(l.getUserId());
+            List<CategorySummaryDto> cats = l.getCategories().stream()
+                    .map(c -> CategorySummaryDto.builder()
+                            .categoryName(c.getCategoryName())
+                            .problemCount(c.getProblemCount())
+                            .build())
+                    .collect(Collectors.toList());
+            int total = cats.stream().mapToInt(CategorySummaryDto::getProblemCount).sum();
+            return MemberLogDto.builder()
+                    .userId(l.getUserId())
+                    .nickname(user != null ? user.getNickname() : "알 수 없음")
+                    .logDate(l.getLogDate())
+                    .bookId(l.getBookId())
+                    .bookTitle(l.getBookId() != null ? bookTitleMap.get(l.getBookId()) : null)
+                    .totalProblems(total)
+                    .categories(cats)
+                    .memo(l.getMemo())
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
     public List<MemberTodayDto> getTodaySummary(Long studyId, Long requesterId) {
         if (!memberRepository.existsByStudyIdAndUserId(studyId, requesterId))
             throw new CustomException(ErrorCode.ACCESS_DENIED);
@@ -627,6 +665,18 @@ public class StudyService {
         private Long userId;
         private String nickname;
         private boolean hasLog;
+        private int totalProblems;
+        private String memo;
+        private List<CategorySummaryDto> categories;
+    }
+
+    @Getter @Builder
+    public static class MemberLogDto {
+        private Long userId;
+        private String nickname;
+        private LocalDate logDate;
+        private Long bookId;
+        private String bookTitle;
         private int totalProblems;
         private String memo;
         private List<CategorySummaryDto> categories;
