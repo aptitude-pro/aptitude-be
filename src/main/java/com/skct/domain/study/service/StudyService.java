@@ -3,8 +3,13 @@ package com.skct.domain.study.service;
 import com.skct.domain.result.entity.ExamResult;
 import com.skct.domain.result.repository.ExamResultRepository;
 import com.skct.domain.study.entity.Study;
+import com.skct.domain.study.entity.StudyBook;
+import com.skct.domain.study.entity.StudyLog;
+import com.skct.domain.study.entity.StudyLogCategory;
 import com.skct.domain.study.entity.StudyMember;
 import com.skct.domain.study.entity.StudyNotice;
+import com.skct.domain.study.repository.StudyBookRepository;
+import com.skct.domain.study.repository.StudyLogRepository;
 import com.skct.domain.study.repository.StudyMemberRepository;
 import com.skct.domain.study.repository.StudyNoticeRepository;
 import com.skct.domain.study.repository.StudyRepository;
@@ -19,7 +24,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -34,6 +41,8 @@ public class StudyService {
     private final StudyNoticeRepository noticeRepository;
     private final UserRepository userRepository;
     private final ExamResultRepository resultRepository;
+    private final StudyBookRepository bookRepository;
+    private final StudyLogRepository logRepository;
 
     public List<StudyResponse> getMyStudies(Long userId) {
         List<Study> studies = studyRepository.findByMemberUserId(userId);
@@ -315,6 +324,153 @@ public class StudyService {
                 .collect(Collectors.toList());
     }
 
+    // ────────────────── Book ──────────────────
+
+    public List<StudyBookDto> getBooks(Long studyId) {
+        studyRepository.findById(studyId)
+                .orElseThrow(() -> new CustomException(ErrorCode.STUDY_NOT_FOUND));
+        return bookRepository.findByStudyIdOrderByCreatedAtDesc(studyId).stream()
+                .map(this::toBookDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public StudyBookDto addBook(Long studyId, Long userId, String title, String author, String publisher, String isbn) {
+        if (!memberRepository.existsByStudyIdAndUserId(studyId, userId))
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        StudyBook book = StudyBook.builder()
+                .studyId(studyId).registeredBy(userId)
+                .title(title).author(author).publisher(publisher).isbn(isbn)
+                .build();
+        return toBookDto(bookRepository.save(book));
+    }
+
+    @Transactional
+    public void deleteBook(Long studyId, Long userId, Long bookId) {
+        StudyBook book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new CustomException(ErrorCode.STUDY_NOT_FOUND));
+        StudyMember member = memberRepository.findByStudyIdAndUserId(studyId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ACCESS_DENIED));
+        boolean isLeader = member.getRole() == StudyMember.Role.LEADER;
+        boolean isRegistrant = book.getRegisteredBy().equals(userId);
+        if (!isLeader && !isRegistrant) throw new CustomException(ErrorCode.ACCESS_DENIED);
+        bookRepository.delete(book);
+    }
+
+    // ────────────────── StudyLog ──────────────────
+
+    public List<StudyLogDto> getMyLogs(Long studyId, Long userId, String yearMonth) {
+        if (!memberRepository.existsByStudyIdAndUserId(studyId, userId))
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        YearMonth ym = YearMonth.parse(yearMonth);
+        return logRepository.findByUserIdAndStudyIdAndMonth(userId, studyId, ym.getYear(), ym.getMonthValue())
+                .stream().map(this::toLogDto).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public StudyLogDto upsertLog(Long studyId, Long userId, LocalDate logDate,
+                                  Long bookId, String memo, List<CategoryInput> categoryInputs) {
+        if (!memberRepository.existsByStudyIdAndUserId(studyId, userId))
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+
+        StudyLog log = logRepository.findByUserIdAndStudyIdAndLogDate(userId, studyId, logDate)
+                .orElse(null);
+
+        if (log == null) {
+            log = StudyLog.builder()
+                    .userId(userId).studyId(studyId).logDate(logDate)
+                    .bookId(bookId).memo(memo)
+                    .build();
+            log = logRepository.save(log);
+        } else {
+            log.update(bookId, memo);
+            log.clearCategories();
+        }
+
+        if (categoryInputs != null) {
+            for (CategoryInput ci : categoryInputs) {
+                if (ci.getProblemCount() > 0) {
+                    StudyLogCategory cat = StudyLogCategory.builder()
+                            .studyLog(log).categoryName(ci.getCategoryName())
+                            .problemCount(ci.getProblemCount())
+                            .build();
+                    log.getCategories().add(cat);
+                }
+            }
+        }
+        return toLogDto(log);
+    }
+
+    @Transactional
+    public void deleteLog(Long studyId, Long userId, Long logId) {
+        StudyLog log = logRepository.findById(logId)
+                .orElseThrow(() -> new CustomException(ErrorCode.STUDY_NOT_FOUND));
+        if (!log.getUserId().equals(userId) || !log.getStudyId().equals(studyId))
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        logRepository.delete(log);
+    }
+
+    public List<MemberTodayDto> getTodaySummary(Long studyId, Long requesterId) {
+        if (!memberRepository.existsByStudyIdAndUserId(studyId, requesterId))
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+
+        List<StudyMember> members = memberRepository.findByStudyId(studyId);
+        List<Long> userIds = members.stream().map(StudyMember::getUserId).toList();
+        Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        LocalDate today = LocalDate.now();
+        List<StudyLog> todayLogs = logRepository.findByStudyIdAndLogDate(studyId, today);
+        Map<Long, StudyLog> logByUser = todayLogs.stream()
+                .collect(Collectors.toMap(StudyLog::getUserId, l -> l));
+
+        return members.stream().map(m -> {
+            User user = userMap.get(m.getUserId());
+            StudyLog log = logByUser.get(m.getUserId());
+            List<CategorySummaryDto> cats = log == null ? List.of()
+                    : log.getCategories().stream()
+                        .map(c -> CategorySummaryDto.builder()
+                                .categoryName(c.getCategoryName())
+                                .problemCount(c.getProblemCount())
+                                .build())
+                        .collect(Collectors.toList());
+            int total = cats.stream().mapToInt(CategorySummaryDto::getProblemCount).sum();
+            return MemberTodayDto.builder()
+                    .userId(m.getUserId())
+                    .nickname(user != null ? user.getNickname() : "알 수 없음")
+                    .hasLog(log != null)
+                    .totalProblems(total)
+                    .categories(cats)
+                    .memo(log != null ? log.getMemo() : null)
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
+    private StudyBookDto toBookDto(StudyBook b) {
+        return StudyBookDto.builder()
+                .id(b.getId()).studyId(b.getStudyId())
+                .title(b.getTitle()).author(b.getAuthor())
+                .publisher(b.getPublisher()).isbn(b.getIsbn())
+                .registeredBy(b.getRegisteredBy())
+                .createdAt(b.getCreatedAt())
+                .build();
+    }
+
+    private StudyLogDto toLogDto(StudyLog l) {
+        List<CategorySummaryDto> cats = l.getCategories().stream()
+                .map(c -> CategorySummaryDto.builder()
+                        .categoryName(c.getCategoryName())
+                        .problemCount(c.getProblemCount())
+                        .build())
+                .collect(Collectors.toList());
+        int total = cats.stream().mapToInt(CategorySummaryDto::getProblemCount).sum();
+        return StudyLogDto.builder()
+                .id(l.getId()).userId(l.getUserId()).studyId(l.getStudyId())
+                .bookId(l.getBookId()).logDate(l.getLogDate()).memo(l.getMemo())
+                .categories(cats).totalProblems(total)
+                .build();
+    }
+
     private StudyResponse toResponse(Study s, Long userId) {
         StudyMember.Role myRole = null;
         if (userId != null) {
@@ -434,5 +590,51 @@ public class StudyService {
     public static class TimeSeriesGroup {
         private String groupKey;
         private List<TimeSeriesPoint> points;
+    }
+
+    @Getter @Builder
+    public static class StudyBookDto {
+        private Long id;
+        private Long studyId;
+        private String title;
+        private String author;
+        private String publisher;
+        private String isbn;
+        private Long registeredBy;
+        private LocalDateTime createdAt;
+    }
+
+    @Getter @Builder
+    public static class StudyLogDto {
+        private Long id;
+        private Long userId;
+        private Long studyId;
+        private Long bookId;
+        private LocalDate logDate;
+        private String memo;
+        private int totalProblems;
+        private List<CategorySummaryDto> categories;
+    }
+
+    @Getter @Builder
+    public static class CategorySummaryDto {
+        private String categoryName;
+        private int problemCount;
+    }
+
+    @Getter @Builder
+    public static class MemberTodayDto {
+        private Long userId;
+        private String nickname;
+        private boolean hasLog;
+        private int totalProblems;
+        private String memo;
+        private List<CategorySummaryDto> categories;
+    }
+
+    @Getter
+    public static class CategoryInput {
+        private String categoryName;
+        private int problemCount;
     }
 }

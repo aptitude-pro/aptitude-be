@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Tag(name = "Study", description = "스터디 API")
@@ -139,6 +140,77 @@ public class StudyController {
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
+    // ────────────────── Books ──────────────────
+
+    @Operation(summary = "스터디 책 목록")
+    @GetMapping("/{id}/books")
+    public ResponseEntity<ApiResponse<List<StudyService.StudyBookDto>>> getBooks(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(ApiResponse.ok(studyService.getBooks(id)));
+    }
+
+    @Operation(summary = "책 등록 (멤버 누구나)")
+    @PostMapping("/{id}/books")
+    public ResponseEntity<ApiResponse<StudyService.StudyBookDto>> addBook(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId,
+            @RequestBody BookRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                studyService.addBook(id, userId, request.getTitle(), request.getAuthor(),
+                        request.getPublisher(), request.getIsbn())));
+    }
+
+    @Operation(summary = "책 삭제 (등록자 or 리더)")
+    @DeleteMapping("/{id}/books/{bookId}")
+    public ResponseEntity<ApiResponse<Void>> deleteBook(
+            @PathVariable Long id,
+            @PathVariable Long bookId,
+            @AuthenticationPrincipal Long userId) {
+        studyService.deleteBook(id, userId, bookId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    // ────────────────── StudyLog ──────────────────
+
+    @Operation(summary = "내 학습 기록 월별 조회")
+    @GetMapping("/{id}/logs")
+    public ResponseEntity<ApiResponse<List<StudyService.StudyLogDto>>> getMyLogs(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId,
+            @RequestParam String month) {
+        return ResponseEntity.ok(ApiResponse.ok(studyService.getMyLogs(id, userId, month)));
+    }
+
+    @Operation(summary = "학습 기록 생성/수정 (upsert)")
+    @PostMapping("/{id}/logs")
+    public ResponseEntity<ApiResponse<StudyService.StudyLogDto>> upsertLog(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId,
+            @RequestBody UpsertLogRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                studyService.upsertLog(id, userId, request.getLogDate(),
+                        request.getBookId(), request.getMemo(), request.getCategories())));
+    }
+
+    @Operation(summary = "학습 기록 삭제")
+    @DeleteMapping("/{id}/logs/{logId}")
+    public ResponseEntity<ApiResponse<Void>> deleteLog(
+            @PathVariable Long id,
+            @PathVariable Long logId,
+            @AuthenticationPrincipal Long userId) {
+        studyService.deleteLog(id, userId, logId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @Operation(summary = "스터디원 오늘 학습 현황")
+    @GetMapping("/{id}/logs/today-summary")
+    public ResponseEntity<ApiResponse<List<StudyService.MemberTodayDto>>> getTodaySummary(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(ApiResponse.ok(studyService.getTodaySummary(id, userId)));
+    }
+
     @Getter static class CreateStudyRequest {
         private String name;
         private String examType;
@@ -154,5 +226,19 @@ public class StudyController {
     @Getter static class NoticeRequest {
         private String title;
         private String content;
+    }
+
+    @Getter static class BookRequest {
+        private String title;
+        private String author;
+        private String publisher;
+        private String isbn;
+    }
+
+    @Getter static class UpsertLogRequest {
+        private LocalDate logDate;
+        private Long bookId;
+        private String memo;
+        private List<StudyService.CategoryInput> categories;
     }
 }

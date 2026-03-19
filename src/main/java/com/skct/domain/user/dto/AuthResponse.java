@@ -35,7 +35,7 @@ public class AuthResponse {
                         .createdAt(user.getCreatedAt())
                         .build())
                 .accessToken(accessToken)
-                .refreshToken(user.getRefreshToken())
+                .refreshToken(null)
                 .build();
     }
 }

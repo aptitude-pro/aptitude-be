@@ -37,7 +37,7 @@ public class ResultService {
     private final ExamPaperRepository examPaperRepository;
 
     public Page<ExamResultResponse> getResults(Long userId, Pageable pageable) {
-        return resultRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
+        return resultRepository.findByUserIdAndIsDraftFalseOrderByCreatedAtDesc(userId, pageable)
                 .map(r -> ExamResultResponse.from(r, null));
     }
 
