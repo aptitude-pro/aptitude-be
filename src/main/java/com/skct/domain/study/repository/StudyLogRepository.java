@@ -36,4 +36,6 @@ public interface StudyLogRepository extends JpaRepository<StudyLog, Long> {
             @Param("userId") Long userId,
             @Param("year") int year,
             @Param("month") int month);
+
+    List<StudyLog> findByUserIdAndLogDateBetween(Long userId, LocalDate from, LocalDate to);
 }

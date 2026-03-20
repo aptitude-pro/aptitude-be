@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,6 +20,8 @@ public interface ExamResultRepository extends JpaRepository<ExamResult, Long> {
     Optional<ExamResult> findByIdAndUserId(Long id, Long userId);
     List<ExamResult> findByUserIdIn(List<Long> userIds);
     void deleteByUserId(Long userId);
+
+    List<ExamResult> findByUserIdAndCreatedAtBetween(Long userId, LocalDateTime from, LocalDateTime to);
 
     @Query("SELECT AVG(r.totalScore) FROM ExamResult r WHERE r.userId = :userId AND r.isDraft = false")
     Double findAvgScoreByUserId(Long userId);

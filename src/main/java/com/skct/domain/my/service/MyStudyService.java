@@ -11,6 +11,7 @@ import com.skct.domain.study.repository.StudyLogRepository;
 import com.skct.domain.study.repository.StudyRepository;
 import com.skct.global.exception.CustomException;
 import com.skct.global.exception.ErrorCode;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -192,6 +193,7 @@ public class MyStudyService {
     }
 
     @Getter
+    @AllArgsConstructor
     public static class CategoryInput {
         private String categoryName;
         private int problemCount;

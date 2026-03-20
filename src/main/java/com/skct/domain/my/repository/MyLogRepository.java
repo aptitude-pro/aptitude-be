@@ -19,4 +19,15 @@ public interface MyLogRepository extends JpaRepository<MyLog, Long> {
             @Param("userId") Long userId,
             @Param("year") int year,
             @Param("month") int month);
+
+    List<MyLog> findByUserIdAndLogDateBetween(Long userId, LocalDate from, LocalDate to);
+
+    @Query("SELECT l FROM MyLog l WHERE l.userId IN :userIds " +
+           "AND YEAR(l.logDate) = :year AND MONTH(l.logDate) = :month " +
+           "ORDER BY l.logDate, l.userId")
+    List<MyLog> findByUserIdInAndMonth(@Param("userIds") List<Long> userIds,
+                                       @Param("year") int year,
+                                       @Param("month") int month);
+
+    List<MyLog> findByUserIdInAndLogDate(List<Long> userIds, LocalDate logDate);
 }

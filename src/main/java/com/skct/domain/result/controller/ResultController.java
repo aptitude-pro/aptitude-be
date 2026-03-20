@@ -10,11 +10,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpStatus;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -55,6 +57,15 @@ public class ResultController {
     public ResponseEntity<ApiResponse<Map<String, Integer>>> getCategoryData(
             @AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(ApiResponse.ok(resultService.getCategoryData(userId)));
+    }
+
+    @Operation(summary = "활동 히트맵 데이터")
+    @GetMapping("/stats/activity")
+    public ResponseEntity<ApiResponse<List<ResultService.ActivityDay>>> getActivityHeatmap(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(ApiResponse.ok(resultService.getActivityHeatmap(userId, from, to)));
     }
 
     @Operation(summary = "통계 요약")

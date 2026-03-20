@@ -3,6 +3,7 @@ package com.skct.domain.result.service;
 import com.skct.domain.exam.entity.Question;
 import com.skct.domain.exam.repository.ExamPaperRepository;
 import com.skct.domain.exam.repository.QuestionRepository;
+import com.skct.domain.my.repository.MyLogRepository;
 import com.skct.domain.result.dto.ExamResultResponse;
 import com.skct.domain.result.dto.ManualResultRequest;
 import com.skct.domain.result.entity.ExamResult;
@@ -21,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -35,6 +37,7 @@ public class ResultService {
     private final QuestionRepository questionRepository;
     private final ExamSessionRepository sessionRepository;
     private final ExamPaperRepository examPaperRepository;
+    private final MyLogRepository myLogRepository;
 
     public Page<ExamResultResponse> getResults(Long userId, Pageable pageable) {
         return resultRepository.findByUserIdAndIsDraftFalseOrderByCreatedAtDesc(userId, pageable)
@@ -252,12 +255,49 @@ public class ResultService {
         return ExamResultResponse.from(result, details);
     }
 
+    @Transactional(readOnly = true)
+    public List<ActivityDay> getActivityHeatmap(Long userId, LocalDate from, LocalDate to) {
+        Set<LocalDate> myLogDates = myLogRepository
+                .findByUserIdAndLogDateBetween(userId, from, to)
+                .stream().map(l -> l.getLogDate()).collect(Collectors.toSet());
+
+        Map<LocalDate, Long> examCounts = resultRepository
+                .findByUserIdAndCreatedAtBetween(userId,
+                        from.atStartOfDay(), to.plusDays(1).atStartOfDay())
+                .stream()
+                .filter(r -> !r.isDraft())
+                .collect(Collectors.groupingBy(
+                        r -> r.getCreatedAt().toLocalDate(), Collectors.counting()));
+
+        Set<LocalDate> allDates = new HashSet<>();
+        allDates.addAll(myLogDates);
+        allDates.addAll(examCounts.keySet());
+
+        return allDates.stream().sorted().map(date -> {
+            boolean hasLog = myLogDates.contains(date);
+            int exams = examCounts.getOrDefault(date, 0L).intValue();
+            int level = (hasLog ? 1 : 0) + Math.min(exams, 3);
+            return ActivityDay.builder()
+                    .date(date).hasLog(hasLog)
+                    .examCount(exams).level(level).build();
+        }).collect(Collectors.toList());
+    }
+
     private String buildTitle(ManualResultRequest req) {
         if (req.getExamYear() != null && req.getExamPeriod() != null && req.getPlatform() != null) {
             String round = req.getExamRound() != null ? " " + req.getExamRound() : "";
             return String.format("%d년 %s %s%s SKCT", req.getExamYear(), req.getExamPeriod(), req.getPlatform(), round);
         }
         return "SKCT";
+    }
+
+    @Getter
+    @Builder
+    public static class ActivityDay {
+        private LocalDate date;
+        private boolean hasLog;
+        private int examCount;
+        private int level;
     }
 
     @Getter

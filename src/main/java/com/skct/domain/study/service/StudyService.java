@@ -2,14 +2,14 @@ package com.skct.domain.study.service;
 
 import com.skct.domain.result.entity.ExamResult;
 import com.skct.domain.result.repository.ExamResultRepository;
+import com.skct.domain.my.entity.MyLog;
+import com.skct.domain.my.repository.MyLogRepository;
+import com.skct.domain.my.service.MyStudyService;
 import com.skct.domain.study.entity.Study;
 import com.skct.domain.study.entity.StudyBook;
-import com.skct.domain.study.entity.StudyLog;
-import com.skct.domain.study.entity.StudyLogCategory;
 import com.skct.domain.study.entity.StudyMember;
 import com.skct.domain.study.entity.StudyNotice;
 import com.skct.domain.study.repository.StudyBookRepository;
-import com.skct.domain.study.repository.StudyLogRepository;
 import com.skct.domain.study.repository.StudyMemberRepository;
 import com.skct.domain.study.repository.StudyNoticeRepository;
 import com.skct.domain.study.repository.StudyRepository;
@@ -42,7 +42,8 @@ public class StudyService {
     private final UserRepository userRepository;
     private final ExamResultRepository resultRepository;
     private final StudyBookRepository bookRepository;
-    private final StudyLogRepository logRepository;
+    private final MyLogRepository myLogRepository;
+    private final MyStudyService myStudyService;
 
     public List<StudyResponse> getMyStudies(Long userId) {
         List<Study> studies = studyRepository.findByMemberUserId(userId);
@@ -363,8 +364,8 @@ public class StudyService {
         if (!memberRepository.existsByStudyIdAndUserId(studyId, userId))
             throw new CustomException(ErrorCode.ACCESS_DENIED);
         YearMonth ym = YearMonth.parse(yearMonth);
-        return logRepository.findByUserIdAndStudyIdAndMonth(userId, studyId, ym.getYear(), ym.getMonthValue())
-                .stream().map(this::toLogDto).collect(Collectors.toList());
+        return myLogRepository.findByUserIdAndMonth(userId, ym.getYear(), ym.getMonthValue())
+                .stream().map(l -> toLogDtoFromMyLog(l, studyId)).collect(Collectors.toList());
     }
 
     @Transactional
@@ -373,58 +374,45 @@ public class StudyService {
         if (!memberRepository.existsByStudyIdAndUserId(studyId, userId))
             throw new CustomException(ErrorCode.ACCESS_DENIED);
 
-        StudyLog log = logRepository.findByUserIdAndStudyIdAndLogDate(userId, studyId, logDate)
-                .orElse(null);
+        List<MyStudyService.CategoryInput> myCats = categoryInputs == null ? null
+                : categoryInputs.stream()
+                        .map(ci -> new MyStudyService.CategoryInput(ci.getCategoryName(), ci.getProblemCount()))
+                        .collect(Collectors.toList());
+        MyStudyService.MyLogDto result = myStudyService.upsertMyLog(userId, logDate, null, memo, myCats);
 
-        if (log == null) {
-            log = StudyLog.builder()
-                    .userId(userId).studyId(studyId).logDate(logDate)
-                    .bookId(bookId).memo(memo)
-                    .build();
-            log = logRepository.save(log);
-        } else {
-            log.update(bookId, memo);
-            log.clearCategories();
-        }
+        List<CategorySummaryDto> cats = result.getCategories() == null ? List.of()
+                : result.getCategories().stream()
+                        .map(c -> CategorySummaryDto.builder()
+                                .categoryName(c.getCategoryName())
+                                .problemCount(c.getProblemCount())
+                                .build())
+                        .collect(Collectors.toList());
 
-        if (categoryInputs != null) {
-            for (CategoryInput ci : categoryInputs) {
-                if (ci.getProblemCount() > 0) {
-                    StudyLogCategory cat = StudyLogCategory.builder()
-                            .studyLog(log).categoryName(ci.getCategoryName())
-                            .problemCount(ci.getProblemCount())
-                            .build();
-                    log.getCategories().add(cat);
-                }
-            }
-        }
-        return toLogDto(log);
+        return StudyLogDto.builder()
+                .id(result.getId()).userId(userId).studyId(studyId)
+                .bookId(null).logDate(logDate).memo(memo)
+                .categories(cats).totalProblems(result.getTotalProblems())
+                .build();
     }
 
     @Transactional
     public void deleteLog(Long studyId, Long userId, Long logId) {
-        StudyLog log = logRepository.findById(logId)
-                .orElseThrow(() -> new CustomException(ErrorCode.STUDY_NOT_FOUND));
-        if (!log.getUserId().equals(userId) || !log.getStudyId().equals(studyId))
+        if (!memberRepository.existsByStudyIdAndUserId(studyId, userId))
             throw new CustomException(ErrorCode.ACCESS_DENIED);
-        logRepository.delete(log);
+        myStudyService.deleteMyLog(userId, logId);
     }
 
     public List<MemberLogDto> getMemberLogs(Long studyId, Long requesterId, String yearMonth) {
         if (!memberRepository.existsByStudyIdAndUserId(studyId, requesterId))
             throw new CustomException(ErrorCode.ACCESS_DENIED);
 
-        YearMonth ym = YearMonth.parse(yearMonth);
-        List<StudyLog> logs = logRepository.findByStudyIdAndMonth(studyId, ym.getYear(), ym.getMonthValue());
-
-        List<Long> userIds = logs.stream().map(StudyLog::getUserId).distinct().toList();
+        List<StudyMember> members = memberRepository.findByStudyId(studyId);
+        List<Long> userIds = members.stream().map(StudyMember::getUserId).toList();
         Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
                 .collect(Collectors.toMap(User::getId, u -> u));
 
-        List<Long> bookIds = logs.stream()
-                .filter(l -> l.getBookId() != null).map(StudyLog::getBookId).distinct().toList();
-        Map<Long, String> bookTitleMap = bookRepository.findAllById(bookIds).stream()
-                .collect(Collectors.toMap(StudyBook::getId, StudyBook::getTitle));
+        YearMonth ym = YearMonth.parse(yearMonth);
+        List<MyLog> logs = myLogRepository.findByUserIdInAndMonth(userIds, ym.getYear(), ym.getMonthValue());
 
         return logs.stream().map(l -> {
             User user = userMap.get(l.getUserId());
@@ -439,8 +427,8 @@ public class StudyService {
                     .userId(l.getUserId())
                     .nickname(user != null ? user.getNickname() : "알 수 없음")
                     .logDate(l.getLogDate())
-                    .bookId(l.getBookId())
-                    .bookTitle(l.getBookId() != null ? bookTitleMap.get(l.getBookId()) : null)
+                    .bookId(null)
+                    .bookTitle(null)
                     .totalProblems(total)
                     .categories(cats)
                     .memo(l.getMemo())
@@ -458,13 +446,13 @@ public class StudyService {
                 .collect(Collectors.toMap(User::getId, u -> u));
 
         LocalDate today = LocalDate.now();
-        List<StudyLog> todayLogs = logRepository.findByStudyIdAndLogDate(studyId, today);
-        Map<Long, StudyLog> logByUser = todayLogs.stream()
-                .collect(Collectors.toMap(StudyLog::getUserId, l -> l));
+        List<MyLog> todayLogs = myLogRepository.findByUserIdInAndLogDate(userIds, today);
+        Map<Long, MyLog> logByUser = todayLogs.stream()
+                .collect(Collectors.toMap(MyLog::getUserId, l -> l));
 
         return members.stream().map(m -> {
             User user = userMap.get(m.getUserId());
-            StudyLog log = logByUser.get(m.getUserId());
+            MyLog log = logByUser.get(m.getUserId());
             List<CategorySummaryDto> cats = log == null ? List.of()
                     : log.getCategories().stream()
                         .map(c -> CategorySummaryDto.builder()
@@ -493,7 +481,7 @@ public class StudyService {
                 .build();
     }
 
-    private StudyLogDto toLogDto(StudyLog l) {
+    private StudyLogDto toLogDtoFromMyLog(MyLog l, Long studyId) {
         List<CategorySummaryDto> cats = l.getCategories().stream()
                 .map(c -> CategorySummaryDto.builder()
                         .categoryName(c.getCategoryName())
@@ -502,7 +490,7 @@ public class StudyService {
                 .collect(Collectors.toList());
         int total = cats.stream().mapToInt(CategorySummaryDto::getProblemCount).sum();
         return StudyLogDto.builder()
-                .id(l.getId()).userId(l.getUserId()).studyId(l.getStudyId())
+                .id(l.getId()).userId(l.getUserId()).studyId(studyId)
                 .bookId(l.getBookId()).logDate(l.getLogDate()).memo(l.getMemo())
                 .categories(cats).totalProblems(total)
                 .build();
