@@ -77,6 +77,16 @@ public class MyStudyController {
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
+    // ─── 스터디 학습 기록 연계 ───
+
+    @Operation(summary = "내가 속한 스터디의 월별 학습 기록 조회")
+    @GetMapping("/study-logs")
+    public ResponseEntity<ApiResponse<List<MyStudyService.StudyLogSummaryDto>>> getMyStudyLogs(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam String month) {
+        return ResponseEntity.ok(ApiResponse.ok(myStudyService.getMyStudyLogs(userId, month)));
+    }
+
     // ─── Request ───
 
     @Getter

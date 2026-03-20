@@ -335,12 +335,12 @@ public class StudyService {
     }
 
     @Transactional
-    public StudyBookDto addBook(Long studyId, Long userId, String title, String author, String publisher, String isbn) {
+    public StudyBookDto addBook(Long studyId, Long userId, String title, Integer year, String examType) {
         if (!memberRepository.existsByStudyIdAndUserId(studyId, userId))
             throw new CustomException(ErrorCode.ACCESS_DENIED);
         StudyBook book = StudyBook.builder()
                 .studyId(studyId).registeredBy(userId)
-                .title(title).author(author).publisher(publisher).isbn(isbn)
+                .title(title).year(year).examType(examType)
                 .build();
         return toBookDto(bookRepository.save(book));
     }
@@ -487,8 +487,7 @@ public class StudyService {
     private StudyBookDto toBookDto(StudyBook b) {
         return StudyBookDto.builder()
                 .id(b.getId()).studyId(b.getStudyId())
-                .title(b.getTitle()).author(b.getAuthor())
-                .publisher(b.getPublisher()).isbn(b.getIsbn())
+                .title(b.getTitle()).year(b.getYear()).examType(b.getExamType())
                 .registeredBy(b.getRegisteredBy())
                 .createdAt(b.getCreatedAt())
                 .build();
@@ -635,9 +634,8 @@ public class StudyService {
         private Long id;
         private Long studyId;
         private String title;
-        private String author;
-        private String publisher;
-        private String isbn;
+        private Integer year;
+        private String examType;
         private Long registeredBy;
         private LocalDateTime createdAt;
     }

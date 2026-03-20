@@ -23,13 +23,10 @@ public class StudyBook extends BaseTimeEntity {
     private String title;
 
     @Column
-    private String author;
-
-    @Column
-    private String publisher;
+    private Integer year;
 
     @Column(length = 20)
-    private String isbn;
+    private String examType;
 
     @Column(nullable = false)
     private Long registeredBy;

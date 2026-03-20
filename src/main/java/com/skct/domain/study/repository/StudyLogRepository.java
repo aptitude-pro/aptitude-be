@@ -29,4 +29,11 @@ public interface StudyLogRepository extends JpaRepository<StudyLog, Long> {
             @Param("studyId") Long studyId,
             @Param("year") int year,
             @Param("month") int month);
+
+    @Query("SELECT l FROM StudyLog l WHERE l.userId = :userId " +
+           "AND YEAR(l.logDate) = :year AND MONTH(l.logDate) = :month ORDER BY l.logDate")
+    List<StudyLog> findByUserIdAndMonth(
+            @Param("userId") Long userId,
+            @Param("year") int year,
+            @Param("month") int month);
 }

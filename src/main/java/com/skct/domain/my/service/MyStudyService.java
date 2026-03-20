@@ -5,6 +5,10 @@ import com.skct.domain.my.entity.MyLog;
 import com.skct.domain.my.entity.MyLogCategory;
 import com.skct.domain.my.repository.MyBookRepository;
 import com.skct.domain.my.repository.MyLogRepository;
+import com.skct.domain.study.entity.Study;
+import com.skct.domain.study.entity.StudyLog;
+import com.skct.domain.study.repository.StudyLogRepository;
+import com.skct.domain.study.repository.StudyRepository;
 import com.skct.global.exception.CustomException;
 import com.skct.global.exception.ErrorCode;
 import lombok.Builder;
@@ -17,6 +21,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,6 +31,8 @@ public class MyStudyService {
 
     private final MyBookRepository bookRepository;
     private final MyLogRepository logRepository;
+    private final StudyLogRepository studyLogRepository;
+    private final StudyRepository studyRepository;
 
     // ─── 개인 책 ───
 
@@ -98,6 +105,38 @@ public class MyStudyService {
         logRepository.delete(log);
     }
 
+    // ─── 스터디 학습 기록 (읽기전용 연계) ───
+
+    public List<StudyLogSummaryDto> getMyStudyLogs(Long userId, String yearMonth) {
+        YearMonth ym = YearMonth.parse(yearMonth);
+        List<StudyLog> logs = studyLogRepository.findByUserIdAndMonth(userId, ym.getYear(), ym.getMonthValue());
+
+        List<Long> studyIds = logs.stream().map(StudyLog::getStudyId).distinct().collect(Collectors.toList());
+        Map<Long, String> studyNameMap = studyRepository.findAllById(studyIds).stream()
+                .collect(Collectors.toMap(Study::getId, Study::getName));
+
+        return logs.stream().map(l -> toStudyLogSummaryDto(l, studyNameMap)).collect(Collectors.toList());
+    }
+
+    private StudyLogSummaryDto toStudyLogSummaryDto(StudyLog l, Map<Long, String> studyNameMap) {
+        List<CategorySummaryDto> cats = l.getCategories().stream()
+                .map(c -> CategorySummaryDto.builder()
+                        .categoryName(c.getCategoryName())
+                        .problemCount(c.getProblemCount())
+                        .build())
+                .collect(Collectors.toList());
+        int total = cats.stream().mapToInt(CategorySummaryDto::getProblemCount).sum();
+        return StudyLogSummaryDto.builder()
+                .id(l.getId())
+                .studyId(l.getStudyId())
+                .studyName(studyNameMap.getOrDefault(l.getStudyId(), ""))
+                .logDate(l.getLogDate())
+                .totalProblems(total)
+                .categories(cats)
+                .memo(l.getMemo())
+                .build();
+    }
+
     // ─── 변환 ───
 
     private MyBookDto toBookDto(MyBook b) {
@@ -156,5 +195,16 @@ public class MyStudyService {
     public static class CategoryInput {
         private String categoryName;
         private int problemCount;
+    }
+
+    @Getter @Builder
+    public static class StudyLogSummaryDto {
+        private Long id;
+        private Long studyId;
+        private String studyName;
+        private LocalDate logDate;
+        private int totalProblems;
+        private List<CategorySummaryDto> categories;
+        private String memo;
     }
 }

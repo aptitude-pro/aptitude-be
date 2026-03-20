@@ -157,8 +157,8 @@ public class StudyController {
             @AuthenticationPrincipal Long userId,
             @RequestBody BookRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(
-                studyService.addBook(id, userId, request.getTitle(), request.getAuthor(),
-                        request.getPublisher(), request.getIsbn())));
+                studyService.addBook(id, userId, request.getTitle(), request.getYear(),
+                        request.getExamType())));
     }
 
     @Operation(summary = "책 삭제 (등록자 or 리더)")
@@ -239,9 +239,8 @@ public class StudyController {
 
     @Getter static class BookRequest {
         private String title;
-        private String author;
-        private String publisher;
-        private String isbn;
+        private Integer year;
+        private String examType;
     }
 
     @Getter static class UpsertLogRequest {
