@@ -42,6 +42,11 @@ public class UserAnswer {
         this.selectedAnswer = answer;
     }
 
+    public void updateMarks(boolean guessed, boolean wrong) {
+        this.isGuessed = guessed;
+        this.isWrong = wrong;
+    }
+
     public UserAnswer withMarks(boolean guessed, boolean wrong) {
         return UserAnswer.builder()
                 .id(this.id)

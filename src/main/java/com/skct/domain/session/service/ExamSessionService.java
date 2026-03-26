@@ -68,14 +68,21 @@ public class ExamSessionService {
         for (Map<String, Object> a : answers) {
             Integer questionNo = (Integer) a.get("questionNo");
             Integer selectedAnswer = (Integer) a.get("selectedAnswer");
+            boolean isGuessed = Boolean.TRUE.equals(a.get("isGuessed"));
+            boolean isWrong = Boolean.TRUE.equals(a.get("isWrong"));
 
             answerRepository.findBySessionIdAndQuestionNo(sessionId, questionNo)
                     .ifPresentOrElse(
-                            existing -> existing.updateAnswer(selectedAnswer),
+                            existing -> {
+                                existing.updateAnswer(selectedAnswer);
+                                existing.updateMarks(isGuessed, isWrong);
+                            },
                             () -> answerRepository.save(UserAnswer.builder()
                                     .sessionId(sessionId)
                                     .questionNo(questionNo)
                                     .selectedAnswer(selectedAnswer)
+                                    .isGuessed(isGuessed)
+                                    .isWrong(isWrong)
                                     .build())
                     );
         }
@@ -184,6 +191,8 @@ public class ExamSessionService {
         public static class AnswerDto {
             private Integer questionNo;
             private Integer selectedAnswer;
+            private boolean isGuessed;
+            private boolean isWrong;
         }
 
         public static SessionResponse from(ExamSession session, ExamPaper paper, List<UserAnswer> answers) {
@@ -200,6 +209,8 @@ public class ExamSessionService {
                             .map(a -> AnswerDto.builder()
                                     .questionNo(a.getQuestionNo())
                                     .selectedAnswer(a.getSelectedAnswer())
+                                    .isGuessed(a.isGuessed())
+                                    .isWrong(a.isWrong())
                                     .build())
                             .collect(Collectors.toList()))
                     .build();
