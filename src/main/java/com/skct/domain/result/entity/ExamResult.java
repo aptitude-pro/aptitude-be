@@ -76,4 +76,13 @@ public class ExamResult extends BaseTimeEntity {
         this.totalCount = totalCount;
         if (elapsedSeconds != null) this.elapsedSeconds = elapsedSeconds;
     }
+
+    public void updateMetadata(String examTitle, Integer examYear, String examPeriod,
+                               String platform, String examRound) {
+        this.examTitle = examTitle;
+        this.examYear = examYear;
+        this.examPeriod = examPeriod;
+        this.platform = platform;
+        this.examRound = examRound;
+    }
 }

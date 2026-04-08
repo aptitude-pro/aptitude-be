@@ -235,6 +235,10 @@ public class ResultService {
                 answeredCount > 0 ? answeredCount : result.getCorrectCount(),
                 result.getTotalCount(),
                 req.getElapsedSeconds());
+        if (!req.isDraft()) {
+            result.updateMetadata(buildTitle(req), req.getExamYear(), req.getExamPeriod(),
+                    req.getPlatform(), req.getExamRound());
+        }
 
         if (!questions.isEmpty()) {
             answerRepository.deleteByExamResultId(resultId);
