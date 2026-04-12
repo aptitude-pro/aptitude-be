@@ -59,7 +59,7 @@ public class ResultService {
                 userAnswers = userAnswers.stream()
                         .map(ua -> {
                             UserAnswer mark = marksMap.get(ua.getQuestionNo());
-                            if (mark != null && (mark.isGuessed() || mark.isWrong())) {
+                            if (mark != null) {
                                 return ua.withMarks(mark.isGuessed(), mark.isWrong());
                             }
                             return ua;
@@ -164,7 +164,9 @@ public class ResultService {
         if (req.getSessionId() != null) {
             ExamSession session = sessionRepository.findById(req.getSessionId())
                     .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
-            session.updateStatus(ExamSession.Status.SUBMITTED);
+            if (session.getStatus() == ExamSession.Status.IN_PROGRESS) {
+                session.updateStatus(ExamSession.Status.SUBMITTED);
+            }
             elapsedSeconds = req.getElapsedSeconds() != null
                     ? req.getElapsedSeconds()
                     : session.getElapsedSeconds();
@@ -222,11 +224,33 @@ public class ResultService {
         ExamResult result = resultRepository.findByIdAndUserId(resultId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESULT_NOT_FOUND));
 
-        Map<String, Integer> catScores = req.getCategoryScores() != null ? req.getCategoryScores() : Map.of();
-        int total = catScores.values().stream().mapToInt(Integer::intValue).sum();
-
         List<ManualResultRequest.QuestionRecord> questions =
                 req.getQuestions() != null ? req.getQuestions() : List.of();
+
+        // 확정 제출된 결과는 마킹(isGuessed/isWrong)만 업데이트 허용
+        if (!result.isDraft()) {
+            if (!questions.isEmpty()) {
+                answerRepository.deleteByExamResultId(resultId);
+                List<UserAnswer> userAnswers = questions.stream()
+                        .map(q -> UserAnswer.builder()
+                                .examResultId(resultId)
+                                .questionNo(q.getQuestionNo())
+                                .selectedAnswer(q.getSelectedAnswer())
+                                .isGuessed(q.isGuessed())
+                                .isWrong(q.isWrong())
+                                .build())
+                        .collect(Collectors.toList());
+                answerRepository.saveAll(userAnswers);
+            }
+            List<ExamResultResponse.AnswerDetail> details = ExamResultResponse.toDetails(
+                    answerRepository.findByExamResultId(resultId));
+            return ExamResultResponse.from(result, details);
+        }
+
+        // draft인 경우에만 score/metadata 업데이트
+        Map<String, Integer> catScores = req.getCategoryScores() != null ? req.getCategoryScores() : Map.of();
+        int total = req.getTotalScore() != null ? req.getTotalScore()
+                : catScores.values().stream().mapToInt(Integer::intValue).sum();
         int answeredCount = (int) questions.stream()
                 .filter(q -> q.getSelectedAnswer() != null)
                 .count();
