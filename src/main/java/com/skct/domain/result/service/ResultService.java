@@ -22,6 +22,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -285,6 +290,95 @@ public class ResultService {
                     .date(date).hasLog(hasLog)
                     .examCount(exams).level(level).build();
         }).collect(Collectors.toList());
+    }
+
+    public void writeCsv(Long userId, Long resultId, String examType, OutputStream out) throws IOException {
+        List<ExamResult> results;
+        if (resultId != null) {
+            ExamResult result = resultRepository.findByIdAndUserId(resultId, userId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.RESULT_NOT_FOUND));
+            results = List.of(result);
+        } else {
+            results = resultRepository.findByUserIdAndIsDraftFalseOrderByCreatedAtAsc(userId);
+            if (examType != null && !examType.isBlank()) {
+                results = results.stream()
+                        .filter(r -> examType.equals(r.getExamType()))
+                        .collect(Collectors.toList());
+            }
+        }
+
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        PrintWriter writer = new PrintWriter(new OutputStreamWriter(out, StandardCharsets.UTF_8));
+        writer.println("영역,문제번호,결과,내답안,정답,추측여부,오답체크,시험명,응시일");
+
+        for (ExamResult result : results) {
+            List<UserAnswer> answers = fetchAnswersWithMarks(result);
+            List<Question> questions = result.getExamPaperId() != null
+                    ? questionRepository.findByExamPaperIdOrderByQuestionNo(result.getExamPaperId())
+                    : List.of();
+            Map<Integer, Question> questionMap = questions.stream()
+                    .collect(Collectors.toMap(Question::getQuestionNo, q -> q));
+
+            String examTitle = csvEscape(result.getExamTitle() != null ? result.getExamTitle() : result.getExamType());
+            String examDate = result.getCreatedAt() != null ? result.getCreatedAt().format(dateFormatter) : "-";
+
+            for (UserAnswer ua : answers) {
+                Question q = questionMap.get(ua.getQuestionNo());
+                Integer correctAnswer = q != null ? q.getCorrectAnswer() : null;
+                String category = (q != null && q.getCategory() != null) ? q.getCategory() : "미분류";
+                boolean isCorrect = correctAnswer != null && correctAnswer.equals(ua.getSelectedAnswer());
+                String resultMark = correctAnswer != null ? (isCorrect ? "O" : "X") : "-";
+                String myAnswer = ua.getSelectedAnswer() != null ? String.valueOf(ua.getSelectedAnswer()) : "-";
+                String correct = correctAnswer != null ? String.valueOf(correctAnswer) : "-";
+
+                writer.println(String.join(",",
+                        csvEscape(category),
+                        String.valueOf(ua.getQuestionNo()),
+                        resultMark,
+                        myAnswer,
+                        correct,
+                        ua.isGuessed() ? "Y" : "N",
+                        ua.isWrong() ? "Y" : "N",
+                        examTitle,
+                        examDate
+                ));
+            }
+        }
+        writer.flush();
+    }
+
+    private List<UserAnswer> fetchAnswersWithMarks(ExamResult result) {
+        List<UserAnswer> userAnswers;
+        if (result.getSessionId() != null) {
+            userAnswers = answerRepository.findBySessionId(result.getSessionId());
+            List<UserAnswer> markedAnswers = answerRepository.findByExamResultId(result.getId());
+            if (!markedAnswers.isEmpty()) {
+                Map<Integer, UserAnswer> marksMap = markedAnswers.stream()
+                        .collect(Collectors.toMap(UserAnswer::getQuestionNo, ua -> ua));
+                userAnswers = userAnswers.stream()
+                        .map(ua -> {
+                            UserAnswer mark = marksMap.get(ua.getQuestionNo());
+                            if (mark != null && (mark.isGuessed() || mark.isWrong())) {
+                                return ua.withMarks(mark.isGuessed(), mark.isWrong());
+                            }
+                            return ua;
+                        })
+                        .collect(Collectors.toList());
+            }
+        } else {
+            userAnswers = answerRepository.findByExamResultId(result.getId());
+        }
+        return userAnswers.stream()
+                .sorted(Comparator.comparingInt(UserAnswer::getQuestionNo))
+                .collect(Collectors.toList());
+    }
+
+    private String csvEscape(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
     private String buildTitle(ManualResultRequest req) {

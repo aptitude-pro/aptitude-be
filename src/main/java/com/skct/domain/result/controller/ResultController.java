@@ -16,9 +16,14 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpStatus;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @Tag(name = "Result", description = "성적 API")
 @RestController
@@ -73,6 +78,25 @@ public class ResultController {
     public ResponseEntity<ApiResponse<ResultService.StatsSummary>> getStatsSummary(
             @AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(ApiResponse.ok(resultService.getStatsSummary(userId)));
+    }
+
+    @Operation(summary = "성적 CSV 내보내기")
+    @GetMapping("/results/export/csv")
+    public ResponseEntity<StreamingResponseBody> exportCsv(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(required = false) Long resultId,
+            @RequestParam(required = false) String examType) {
+
+        StreamingResponseBody body = out -> {
+            out.write(new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF});
+            resultService.writeCsv(userId, resultId, examType, out);
+        };
+
+        String filename = URLEncoder.encode("성적리포트.csv", StandardCharsets.UTF_8).replace("+", "%20");
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + filename)
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(body);
     }
 
     @Operation(summary = "성적 삭제")
