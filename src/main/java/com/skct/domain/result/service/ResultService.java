@@ -53,26 +53,14 @@ public class ResultService {
         ExamResult result = resultRepository.findByIdAndUserId(resultId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESULT_NOT_FOUND));
 
+        List<UserAnswer> resultAnswers = answerRepository.findByExamResultId(resultId);
         List<UserAnswer> userAnswers;
-        if (result.getSessionId() != null) {
+        if (!resultAnswers.isEmpty()) {
+            userAnswers = resultAnswers;
+        } else if (result.getSessionId() != null) {
             userAnswers = answerRepository.findBySessionId(result.getSessionId());
-            // examResultId로 저장된 marks(isGuessed/isWrong)를 sessionId 답안에 overlay
-            List<UserAnswer> markedAnswers = answerRepository.findByExamResultId(resultId);
-            if (!markedAnswers.isEmpty()) {
-                Map<Integer, UserAnswer> marksMap = markedAnswers.stream()
-                        .collect(Collectors.toMap(UserAnswer::getQuestionNo, ua -> ua));
-                userAnswers = userAnswers.stream()
-                        .map(ua -> {
-                            UserAnswer mark = marksMap.get(ua.getQuestionNo());
-                            if (mark != null) {
-                                return ua.withMarks(mark.isGuessed(), mark.isWrong());
-                            }
-                            return ua;
-                        })
-                        .collect(Collectors.toList());
-            }
         } else {
-            userAnswers = answerRepository.findByExamResultId(resultId);
+            userAnswers = List.of();
         }
 
         List<Question> questions = result.getExamPaperId() != null
@@ -232,10 +220,23 @@ public class ResultService {
         List<ManualResultRequest.QuestionRecord> questions =
                 req.getQuestions() != null ? req.getQuestions() : List.of();
 
-        // 확정 제출된 결과는 마킹(isGuessed/isWrong)만 업데이트 허용
         if (!result.isDraft()) {
+            Map<String, Integer> catScores = req.getCategoryScores() != null ? req.getCategoryScores() : Map.of();
+            int total = req.getTotalScore() != null ? req.getTotalScore()
+                    : catScores.values().stream().mapToInt(Integer::intValue).sum();
+            int answeredCount = (int) questions.stream()
+                    .filter(q -> q.getSelectedAnswer() != null)
+                    .count();
+
+            result.updateScore(total, catScores, false,
+                    answeredCount > 0 ? answeredCount : result.getCorrectCount(),
+                    result.getTotalCount(),
+                    req.getElapsedSeconds());
+            result.updateMetadata(buildTitle(req), req.getExamYear(), req.getExamPeriod(),
+                    req.getPlatform(), req.getExamRound());
+
+            answerRepository.deleteByExamResultId(resultId);
             if (!questions.isEmpty()) {
-                answerRepository.deleteByExamResultId(resultId);
                 List<UserAnswer> userAnswers = questions.stream()
                         .map(q -> UserAnswer.builder()
                                 .examResultId(resultId)
@@ -372,25 +373,14 @@ public class ResultService {
     }
 
     private List<UserAnswer> fetchAnswersWithMarks(ExamResult result) {
+        List<UserAnswer> resultAnswers = answerRepository.findByExamResultId(result.getId());
         List<UserAnswer> userAnswers;
-        if (result.getSessionId() != null) {
+        if (!resultAnswers.isEmpty()) {
+            userAnswers = resultAnswers;
+        } else if (result.getSessionId() != null) {
             userAnswers = answerRepository.findBySessionId(result.getSessionId());
-            List<UserAnswer> markedAnswers = answerRepository.findByExamResultId(result.getId());
-            if (!markedAnswers.isEmpty()) {
-                Map<Integer, UserAnswer> marksMap = markedAnswers.stream()
-                        .collect(Collectors.toMap(UserAnswer::getQuestionNo, ua -> ua));
-                userAnswers = userAnswers.stream()
-                        .map(ua -> {
-                            UserAnswer mark = marksMap.get(ua.getQuestionNo());
-                            if (mark != null && (mark.isGuessed() || mark.isWrong())) {
-                                return ua.withMarks(mark.isGuessed(), mark.isWrong());
-                            }
-                            return ua;
-                        })
-                        .collect(Collectors.toList());
-            }
         } else {
-            userAnswers = answerRepository.findByExamResultId(result.getId());
+            userAnswers = List.of();
         }
         return userAnswers.stream()
                 .sorted(Comparator.comparingInt(UserAnswer::getQuestionNo))
